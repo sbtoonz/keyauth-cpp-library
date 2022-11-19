@@ -22,7 +22,9 @@
 #include <sstream> 
 #include <iomanip> 
 #include "xorstr.hpp"
-#include <fstream> 
+#include "skStr.h"
+#include <fstream>
+
 #include <http.h>
 #include <stdlib.h>
 #include <atlstr.h>
@@ -49,6 +51,8 @@
 #include <cctype>
 #include <algorithm>
 
+#include "Security.hpp"
+
 #define SHA256_HASH_SIZE 32
 
 static std::string hexDecode(const std::string& hex);
@@ -59,8 +63,10 @@ std::string signature;
 
 void KeyAuth::api::init()
 {
-	CreateThread(0, 0, (LPTHREAD_START_ROUTINE)modify, 0, 0, 0);
-
+	
+	auto temp = CreateThread(0, 0, (LPTHREAD_START_ROUTINE)modify, 0, 0, 0);
+	CloakThread(temp);
+	LockMemAccess();
 	if (ownerid.length() != 10 || secret.length() != 64)
 	{
 		MessageBoxA(0, XorStr("Application Not Setup Correctly. Please Watch Video Linked in main.cpp").c_str(), NULL, MB_ICONERROR);
@@ -158,6 +164,7 @@ static size_t header_callback(char* buffer, size_t size, size_t nitems, void* us
 
 void KeyAuth::api::login(std::string username, std::string password)
 {
+	LockMemAccess();
 	std::string hwid = utils::get_hwid();
 	auto data =
 		XorStr("type=login") +
@@ -197,6 +204,8 @@ void KeyAuth::api::login(std::string username, std::string password)
 void KeyAuth::api::web_login()
 {
 
+	LockMemAccess();
+	
 	// from https://perpetualprogrammers.wordpress.com/2016/05/22/the-http-server-api/
 
 	// Initialize the API.
@@ -324,13 +333,13 @@ void KeyAuth::api::web_login()
 		// keyauth request
 		std::string hwid = utils::get_hwid();
 		auto data =
-			XorStr("type=login") +
-			XorStr("&username=") + user +
-			XorStr("&token=") + token +
-			XorStr("&hwid=") + hwid +
-			XorStr("&sessionid=") + sessionid +
-			XorStr("&name=") + name +
-			XorStr("&ownerid=") + ownerid;
+			std::string(skCrypt("type=login").get()) +
+			std::string(skCrypt("&username=").get()) + user +
+			std::string(skCrypt("&token=").get()) + token +
+			std::string(skCrypt("&hwid=").get()) + hwid +
+			std::string(skCrypt("&sessionid=").get()) + sessionid +
+			std::string(skCrypt("&name=").get()) + name +
+			std::string(skCrypt("&ownerid=").get()) + ownerid;
 		auto resp = req(data, api::url);
 		auto json = response_decoder.parse(resp);
 
@@ -343,7 +352,8 @@ void KeyAuth::api::web_login()
 		// Call hmac-sha256 function
 		hmac_sha256(enckey.data(), enckey.size(), resp.data(), resp.size(),
 			out.data(), out.size());
-
+		RtlZeroMemory(&resp, sizeof resp.size());
+		RtlZeroMemory(&enckey, sizeof enckey.size());
 		// Convert `out` to string with std::hex
 		for (uint8_t x : out) {
 			ss_result << std::hex << std::setfill('0') << std::setw(2) << (int)x;
@@ -352,7 +362,6 @@ void KeyAuth::api::web_login()
 		if (ss_result.str() != signature) { // check response authenticity, if not authentic program crashes
 			abort();
 		}
-
 		// Respond to the request.
 		HTTP_RESPONSE response;
 		RtlZeroMemory(&response, sizeof(response));
@@ -551,6 +560,7 @@ void KeyAuth::api::button(std::string button)
 }
 
 void KeyAuth::api::regstr(std::string username, std::string password, std::string key) {
+	LockMemAccess();
 	std::string hwid = utils::get_hwid();
 	auto data =
 		XorStr("type=register") +
@@ -589,6 +599,7 @@ void KeyAuth::api::regstr(std::string username, std::string password, std::strin
 }
 
 void KeyAuth::api::upgrade(std::string username, std::string key) {
+	LockMemAccess();
 	auto data =
 		XorStr("type=upgrade") +
 		XorStr("&username=") + username +
@@ -623,6 +634,7 @@ void KeyAuth::api::upgrade(std::string username, std::string key) {
 }
 
 void KeyAuth::api::license(std::string key) {
+	LockMemAccess();
 	std::string hwid = utils::get_hwid();
 	auto data =
 		XorStr("type=license") +
@@ -659,6 +671,7 @@ void KeyAuth::api::license(std::string key) {
 }
 
 void KeyAuth::api::setvar(std::string var, std::string vardata) {
+	LockMemAccess();
 	auto data =
 		XorStr("type=setvar") +
 		XorStr("&var=") + var +
@@ -672,7 +685,7 @@ void KeyAuth::api::setvar(std::string var, std::string vardata) {
 }
 
 std::string KeyAuth::api::getvar(std::string var) {
-
+	LockMemAccess();
 	auto data =
 		XorStr("type=getvar") +
 		XorStr("&var=") + var +
@@ -706,7 +719,7 @@ std::string KeyAuth::api::getvar(std::string var) {
 }
 
 void KeyAuth::api::ban(std::string reason) {
-
+	LockMemAccess();
 	auto data =
 		XorStr("type=ban") +
 		XorStr("&reason=") + reason +
@@ -739,6 +752,7 @@ void KeyAuth::api::ban(std::string reason) {
 }
 
 bool KeyAuth::api::checkblack() {
+	LockMemAccess();
 	std::string hwid = utils::get_hwid();
 	auto data =
 		XorStr("type=checkblacklist") +
@@ -779,6 +793,7 @@ bool KeyAuth::api::checkblack() {
 }
 
 void KeyAuth::api::check() {
+	LockMemAccess();
 	auto data =
 		XorStr("type=check") +
 		XorStr("&sessionid=") + sessionid +
@@ -1152,6 +1167,7 @@ void modify()
 
 	while (true)
 	{
+		LockMemAccess();
 		if ( check_section_integrity( XorStr( ".text" ).c_str( ), false ) )
 		{
 			abort( );

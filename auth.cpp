@@ -333,13 +333,13 @@ void KeyAuth::api::web_login()
 		// keyauth request
 		std::string hwid = utils::get_hwid();
 		auto data =
-			std::string(skCrypt("type=login").get()) +
-			std::string(skCrypt("&username=").get()) + user +
-			std::string(skCrypt("&token=").get()) + token +
-			std::string(skCrypt("&hwid=").get()) + hwid +
-			std::string(skCrypt("&sessionid=").get()) + sessionid +
-			std::string(skCrypt("&name=").get()) + name +
-			std::string(skCrypt("&ownerid=").get()) + ownerid;
+			std::string(skCrypt("type=login")) +
+			std::string(skCrypt("&username=")) + user +
+			std::string(skCrypt("&token=")) + token +
+			std::string(skCrypt("&hwid=")) + hwid +
+			std::string(skCrypt("&sessionid=")) + sessionid +
+			std::string(skCrypt("&name=")) + name +
+			std::string(skCrypt("&ownerid=")) + ownerid;
 		auto resp = req(data, api::url);
 		auto json = response_decoder.parse(resp);
 

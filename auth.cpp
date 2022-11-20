@@ -175,17 +175,20 @@ static size_t header_callback(char* buffer, size_t size, size_t nitems, void* us
 
 void KeyAuth::api::login(std::string username, std::string password)
 {
+#ifdef MEMLOCK
 	LockMemAccess();
+#endif
 	std::string hwid = utils::get_hwid();
 	auto data =
-		XorStr("type=login") +
-		XorStr("&username=") + username +
-		XorStr("&pass=") + password +
-		XorStr("&hwid=") + hwid +
-		XorStr("&sessionid=") + sessionid +
-		XorStr("&name=") + name +
-		XorStr("&ownerid=") + ownerid;
+		std::string(skCrypt("type=login")) +
+		std::string(skCrypt("&username=")) + username +
+		std::string(skCrypt("&pass=")) + password +
+		std::string(skCrypt("&hwid=")) + hwid +
+		std::string(skCrypt("&sessionid=")) + sessionid +
+		std::string(skCrypt("&name=")) + name +
+		std::string(skCrypt("&ownerid=")) + ownerid;
 	auto response = req(data, url);
+	RtlSecureZeroMemory(&data,sizeof data.size());
 	auto json = response_decoder.parse(response);
 
 	// from https://github.com/h5p9sl/hmac_sha256
@@ -198,11 +201,12 @@ void KeyAuth::api::login(std::string username, std::string password)
 	hmac_sha256(enckey.data(), enckey.size(), response.data(), response.size(),
 		out.data(), out.size());
 
+	RtlSecureZeroMemory(&response, sizeof response.size());
 	// Convert `out` to string with std::hex
 	for (uint8_t x : out) {
 		ss_result << std::hex << std::setfill('0') << std::setw(2) << (int)x;
 	}
-
+	RtlSecureZeroMemory(&out, sizeof out.size());
 	if (ss_result.str() != signature) { // check response authenticity, if not authentic program crashes
 		abort();
 	}
@@ -210,6 +214,7 @@ void KeyAuth::api::login(std::string username, std::string password)
 	load_response_data(json);
 	if (json[("success")])
 		load_user_data(json[("info")]);
+	RtlSecureZeroMemory(&json, sizeof json.size());
 }
 
 void KeyAuth::api::web_login()

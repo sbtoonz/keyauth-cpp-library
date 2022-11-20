@@ -1,5 +1,6 @@
 #include <includes.hpp>
-
+#define INTEGREITYCHECK
+#define MEMLOCK
 #pragma comment(lib, "libcurl.lib")
 
 #define CURL_STATICLIB 

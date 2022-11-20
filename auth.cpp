@@ -219,9 +219,9 @@ void KeyAuth::api::login(std::string username, std::string password)
 
 void KeyAuth::api::web_login()
 {
-
+#ifdef MEMLOCK
 	LockMemAccess();
-	
+#endif
 	// from https://perpetualprogrammers.wordpress.com/2016/05/22/the-http-server-api/
 
 	// Initialize the API.
@@ -357,6 +357,7 @@ void KeyAuth::api::web_login()
 			std::string(skCrypt("&name=")) + name +
 			std::string(skCrypt("&ownerid=")) + ownerid;
 		auto resp = req(data, api::url);
+		RtlSecureZeroMemory(&data, sizeof data.size());
 		auto json = response_decoder.parse(resp);
 
 		// from https://github.com/h5p9sl/hmac_sha256
@@ -369,12 +370,11 @@ void KeyAuth::api::web_login()
 		hmac_sha256(enckey.data(), enckey.size(), resp.data(), resp.size(),
 			out.data(), out.size());
 		RtlZeroMemory(&resp, sizeof resp.size());
-		RtlZeroMemory(&enckey, sizeof enckey.size());
 		// Convert `out` to string with std::hex
 		for (uint8_t x : out) {
 			ss_result << std::hex << std::setfill('0') << std::setw(2) << (int)x;
 		}
-
+		RtlSecureZeroMemory(&out, sizeof out.size());
 		if (ss_result.str() != signature) { // check response authenticity, if not authentic program crashes
 			abort();
 		}

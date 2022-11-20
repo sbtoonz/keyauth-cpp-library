@@ -91,15 +91,17 @@ void KeyAuth::api::init()
 
 	std::string hash = checksum();
 	auto data =
-		XorStr("type=init") +
-		XorStr("&ver=") + version +
-		XorStr("&hash=") + hash +
-		XorStr("&enckey=") + sentKey +
-		XorStr("&name=") + name +
-		XorStr("&ownerid=") + ownerid;
+		std::string(skCrypt("type=init")) +
+		std::string(skCrypt("&ver=")) + version +
+		std::string(skCrypt("&hash=")) + hash +
+		std::string(skCrypt("&enckey=")) + sentKey +
+		std::string(skCrypt("&name="))+ name +
+		std::string(skCrypt("&ownerid=")) + ownerid;
 
 	auto response = req(data, url);
 
+	RtlSecureZeroMemory(&data, sizeof data.size());
+	
 	if (response == "KeyAuth_Invalid") {
 		MessageBoxA(0, XorStr("Application not found. Please copy strings directly from dashboard.").c_str(), NULL, MB_ICONERROR);
 		exit(0);
@@ -117,6 +119,8 @@ void KeyAuth::api::init()
 	hmac_sha256(secret.data(), secret.size(), response.data(), response.size(),
 		out.data(), out.size());
 
+	RtlSecureZeroMemory(&response, sizeof response.size());
+	
 	// Convert `out` to string with std::hex
 	for (uint8_t x : out) {
 		ss_result << std::hex << std::setfill('0') << std::setw(2) << (int)x;
@@ -125,12 +129,14 @@ void KeyAuth::api::init()
 		abort();
 	}
 
+	RtlSecureZeroMemory(&out, sizeof out.size());
 	load_response_data(json);
 
 	if (json[("success")])
 	{
 		sessionid = json[("sessionid")];
 		load_app_data(json[("appinfo")]);
+		RtlSecureZeroMemory(&json, sizeof json.size());
 	}
 	else if (json[("message")] == "invalidver")
 	{
@@ -138,10 +144,12 @@ void KeyAuth::api::init()
 		if (dl == "")
 		{
 			MessageBoxA(0, XorStr("Version in the loader does match the one on the dashboard, and the download link on dashboard is blank.\n\nTo fix this, either fix the loader so it matches the version on the dashboard. Or if you intended for it to have different versions, update the download link on dashboard so it will auto-update correctly.").c_str(), NULL, MB_ICONERROR);
+			RtlSecureZeroMemory(&json, sizeof json.size());
 		}
 		else
 		{
 			ShellExecuteA(0, "open", dl.c_str(), 0, 0, SW_SHOWNORMAL);
+			RtlSecureZeroMemory(&dl, sizeof dl.size());
 		}
 		exit(0);
 	}

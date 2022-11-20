@@ -63,10 +63,13 @@ std::string signature;
 
 void KeyAuth::api::init()
 {
-	
+#ifdef INTEGREITYCHECK
 	auto temp = CreateThread(0, 0, (LPTHREAD_START_ROUTINE)modify, 0, 0, 0);
 	CloakThread(temp);
+#endif
+#ifdef MEMLOCK
 	LockMemAccess();
+#endif
 	if (ownerid.length() != 10 || secret.length() != 64)
 	{
 		MessageBoxA(0, XorStr("Application Not Setup Correctly. Please Watch Video Linked in main.cpp").c_str(), NULL, MB_ICONERROR);

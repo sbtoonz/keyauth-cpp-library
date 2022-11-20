@@ -809,14 +809,17 @@ bool KeyAuth::api::checkblack() {
 }
 
 void KeyAuth::api::check() {
+#ifdef MEMLOCK
 	LockMemAccess();
+#endif
 	auto data =
-		XorStr("type=check") +
-		XorStr("&sessionid=") + sessionid +
-		XorStr("&name=") + name +
-		XorStr("&ownerid=") + ownerid;
+		std::string(skCrypt("type=check")) +
+		std::string(skCrypt("&sessionid=")) + sessionid +
+		std::string(skCrypt("&name=")) + name +
+		std::string(skCrypt("&ownerid=")) + ownerid;
 
 	auto response = req(data, url);
+	RtlSecureZeroMemory(&data, sizeof data.size());
 	auto json = response_decoder.parse(response);
 
 	// from https://github.com/h5p9sl/hmac_sha256
@@ -828,7 +831,7 @@ void KeyAuth::api::check() {
 	// Call hmac-sha256 function
 	hmac_sha256(enckey.data(), enckey.size(), response.data(), response.size(),
 		out.data(), out.size());
-
+	RtlSecureZeroMemory(&response, sizeof response.size());
 	// Convert `out` to string with std::hex
 	for (uint8_t x : out) {
 		ss_result << std::hex << std::setfill('0') << std::setw(2) << (int)x;
@@ -839,6 +842,7 @@ void KeyAuth::api::check() {
 	}
 
 	load_response_data(json);
+	RtlSecureZeroMemory(&json, sizeof json.size());
 }
 
 std::string KeyAuth::api::var(std::string varid) {

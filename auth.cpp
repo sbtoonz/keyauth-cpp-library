@@ -100,7 +100,6 @@ void KeyAuth::api::init()
 
 	auto response = req(data, url);
 
-	RtlSecureZeroMemory(&data, sizeof data.size());
 	
 	if (response == "KeyAuth_Invalid") {
 		MessageBoxA(0, XorStr("Application not found. Please copy strings directly from dashboard.").c_str(), NULL, MB_ICONERROR);
@@ -119,7 +118,6 @@ void KeyAuth::api::init()
 	hmac_sha256(secret.data(), secret.size(), response.data(), response.size(),
 		out.data(), out.size());
 
-	RtlSecureZeroMemory(&response, sizeof response.size());
 	
 	// Convert `out` to string with std::hex
 	for (uint8_t x : out) {
@@ -129,7 +127,7 @@ void KeyAuth::api::init()
 		abort();
 	}
 
-	RtlSecureZeroMemory(&out, sizeof out.size());
+	
 	load_response_data(json);
 
 	if (json[("success")])
@@ -137,6 +135,9 @@ void KeyAuth::api::init()
 		sessionid = json[("sessionid")];
 		load_app_data(json[("appinfo")]);
 		RtlSecureZeroMemory(&json, sizeof json.size());
+		RtlSecureZeroMemory(&out, sizeof out.size());
+		RtlSecureZeroMemory(&response, sizeof response.size());
+		RtlSecureZeroMemory(&data, sizeof data.size());
 	}
 	else if (json[("message")] == "invalidver")
 	{
@@ -145,11 +146,17 @@ void KeyAuth::api::init()
 		{
 			MessageBoxA(0, XorStr("Version in the loader does match the one on the dashboard, and the download link on dashboard is blank.\n\nTo fix this, either fix the loader so it matches the version on the dashboard. Or if you intended for it to have different versions, update the download link on dashboard so it will auto-update correctly.").c_str(), NULL, MB_ICONERROR);
 			RtlSecureZeroMemory(&json, sizeof json.size());
+			RtlSecureZeroMemory(&out, sizeof out.size());
+			RtlSecureZeroMemory(&response, sizeof response.size());
+			RtlSecureZeroMemory(&data, sizeof data.size());
 		}
 		else
 		{
 			ShellExecuteA(0, "open", dl.c_str(), 0, 0, SW_SHOWNORMAL);
 			RtlSecureZeroMemory(&dl, sizeof dl.size());
+			RtlSecureZeroMemory(&out, sizeof out.size());
+			RtlSecureZeroMemory(&response, sizeof response.size());
+			RtlSecureZeroMemory(&data, sizeof data.size());
 		}
 		exit(0);
 	}
@@ -188,9 +195,7 @@ void KeyAuth::api::login(std::string username, std::string password)
 		std::string(skCrypt("&name=")) + name +
 		std::string(skCrypt("&ownerid=")) + ownerid;
 	auto response = req(data, url);
-	RtlSecureZeroMemory(&data,sizeof data.size());
 	auto json = response_decoder.parse(response);
-
 	// from https://github.com/h5p9sl/hmac_sha256
 	std::stringstream ss_result;
 
@@ -201,12 +206,10 @@ void KeyAuth::api::login(std::string username, std::string password)
 	hmac_sha256(enckey.data(), enckey.size(), response.data(), response.size(),
 		out.data(), out.size());
 
-	RtlSecureZeroMemory(&response, sizeof response.size());
 	// Convert `out` to string with std::hex
 	for (uint8_t x : out) {
 		ss_result << std::hex << std::setfill('0') << std::setw(2) << (int)x;
 	}
-	RtlSecureZeroMemory(&out, sizeof out.size());
 	if (ss_result.str() != signature) { // check response authenticity, if not authentic program crashes
 		abort();
 	}
@@ -215,6 +218,9 @@ void KeyAuth::api::login(std::string username, std::string password)
 	if (json[("success")])
 		load_user_data(json[("info")]);
 	RtlSecureZeroMemory(&json, sizeof json.size());
+	RtlSecureZeroMemory(&response, sizeof response.size());
+	RtlSecureZeroMemory(&data,sizeof data.size());
+	RtlSecureZeroMemory(&out, sizeof out.size());
 }
 
 void KeyAuth::api::web_login()
